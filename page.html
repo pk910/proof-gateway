@@ -44,6 +44,7 @@ a:hover { text-decoration: underline; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
 .err { color: var(--bad); white-space: normal; max-width: 520px; }
 .empty { color: var(--muted); padding: 18px 0 4px; }
+footer { margin-top: 26px; color: var(--muted); font-size: 12.5px; text-align: center; }
 </style>
 </head>
 <body>
@@ -118,6 +119,7 @@ a:hover { text-decoration: underline; }
   </table></div>
   {{else}}<p class="empty">No submissions yet.</p>{{end}}
 </section>
+<footer><a href="https://github.com/pk910/proof-gateway">proof-gateway</a> {{.Version}}</footer>
 </main>
 </body>
 </html>

@@ -17,7 +17,7 @@ e.g. Lighthouse with `--proof-engine` (eth-act `optional-proofs` plus the event 
 
 ```
 docker run -d --name proof-gateway -p 127.0.0.1:18570:8080 -v /srv/proof-gateway:/data \
-  pk910/dev-images:proof-gateway \
+  pk910/proof-gateway:latest \
   -beacon node1=http://10.16.72.102:5052 -beacon node2=http://10.0.0.2:5052 \
   -network Sepolia -public-url https://proofs-sepolia.pk910.de \
   -explorer-url https://dora.sepolia.ethpandaops.io

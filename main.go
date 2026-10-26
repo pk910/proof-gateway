@@ -27,6 +27,24 @@ import (
 //go:embed page.html
 var pageFS embed.FS
 
+// set at build time (see Makefile)
+var (
+	BuildVersion string
+	BuildTime    string
+	BuildRelease string
+)
+
+func version() string {
+	v := strings.Trim(BuildRelease, `"`)
+	if v == "" {
+		v = "dev"
+	}
+	if commit := strings.Trim(BuildVersion, `"`); commit != "" {
+		v += " (" + commit + ")"
+	}
+	return v
+}
+
 // maxBodySize bounds a submission: 4 proofs of 4 MiB, as hex JSON.
 const maxBodySize = 40 << 20
 
@@ -53,7 +71,13 @@ func main() {
 	network := flag.String("network", "Sepolia", "network name shown on the page")
 	publicURL := flag.String("public-url", "", "public base URL shown in the API examples")
 	explorerURL := flag.String("explorer-url", "", "explorer base URL for slot links (dora)")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("proof-gateway", version())
+		return
+	}
 
 	if len(beacons) == 0 {
 		slog.Error("at least one -beacon is required")
@@ -142,7 +166,7 @@ func main() {
 		defer cancel()
 		_ = server.Shutdown(shutdownCtx)
 	}()
-	slog.Info("listening", "addr", *listen, "nodes", len(nodes))
+	slog.Info("listening", "addr", *listen, "nodes", len(nodes), "version", version())
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("server", "err", err)
 		os.Exit(1)
@@ -404,6 +428,7 @@ func (g *Gateway) handlePage(w http.ResponseWriter, r *http.Request) {
 		"Proofs":      proofs,
 		"Submissions": submissions,
 		"TypeNames":   proofTypeNames,
+		"Version":     version(),
 	})
 	if err != nil {
 		slog.Error("rendering page", "err", err)

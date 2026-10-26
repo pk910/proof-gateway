@@ -1,12 +1,12 @@
-FROM golang:1.25-alpine AS build
+# local build: docker build . -t pk910/proof-gateway:dev
+FROM golang:1.26-alpine AS build
+RUN apk add --no-cache git make
 WORKDIR /src
-COPY go.mod ./
-COPY *.go page.html ./
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /proof-gateway .
+COPY . .
+RUN make build RELEASE=${RELEASE}
 
-FROM scratch
-COPY --from=build /proof-gateway /proof-gateway
-USER 65532:65532
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /src/bin/proof-gateway /proof-gateway
 VOLUME /data
 EXPOSE 8080
 ENTRYPOINT ["/proof-gateway", "-data", "/data"]

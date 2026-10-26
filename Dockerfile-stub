@@ -1,0 +1,6 @@
+# image of the binary built by the CI workflows (bin/proof-gateway)
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY bin/proof-gateway /proof-gateway
+VOLUME /data
+EXPOSE 8080
+ENTRYPOINT ["/proof-gateway", "-data", "/data"]
