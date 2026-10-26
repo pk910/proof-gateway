@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Network}} Proof Gateway</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --text: #1d1f23; --muted: #6a6f78; --line: #e3e3df;
+  --accent: #2f5bd3; --ok: #1d7a46; --ok-bg: #e3f3ea; --bad: #b3261e; --bad-bg: #fbe7e5;
+  --code-bg: #f0f0ec; --badge-bg: #eceef7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171b; --panel: #1d2026; --text: #e6e7ea; --muted: #9298a3; --line: #2d313a;
+    --accent: #7ea2ff; --ok: #6fd39c; --ok-bg: #1d3328; --bad: #ff8c84; --bad-bg: #3a2120;
+    --code-bg: #262a31; --badge-bg: #272c3a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+header h1 { margin: 0 0 4px; font-size: 26px; }
+header p { margin: 0; color: var(--muted); max-width: 760px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px; margin-top: 22px; }
+h2 { margin: 0 0 12px; font-size: 18px; }
+h3 { margin: 18px 0 6px; font-size: 15px; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code-bg); padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: 6px 0 0; }
+p { margin: 6px 0; }
+.muted { color: var(--muted); }
+.nodes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--badge-bg); font-size: 12px; white-space: nowrap; }
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+td.num { font-variant-numeric: tabular-nums; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.err { color: var(--bad); white-space: normal; max-width: 520px; }
+.empty { color: var(--muted); padding: 18px 0 4px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>{{.Network}} Proof Gateway</h1>
+  <p>A public entry point for EIP-8025 execution proofs. Submitted proofs are verified by the beacon nodes behind the gateway and, when valid, published to the {{.Network}} <code>execution_proof</code> gossip topic. Below are the most recent proofs those nodes verified.</p>
+  <div class="nodes">{{range .Nodes}}<span class="badge">node: {{.}}</span>{{end}}</div>
+</header>
+
+<section>
+  <h2>API</h2>
+  <h3>Submit proofs</h3>
+  <p><code>POST {{.BaseURL}}/eth/v1/beacon/execution_proofs</code></p>
+  <p>The body is a list of 1–4 <code>SignedExecutionProofEnvelope</code>s, either as JSON (<code>Content-Type: application/json</code>) or SSZ <code>List[SignedExecutionProofEnvelope, 4]</code> (<code>Content-Type: application/octet-stream</code>). Every node verifies the prover signature and the zk proof in-process before propagating it. The answer is <code>200</code> once each proof was accepted by at least one node, otherwise <code>400</code> with a failure per rejected proof index.</p>
+<pre>curl -X POST {{.BaseURL}}/eth/v1/beacon/execution_proofs \
+  -H 'Content-Type: application/json' \
+  -d '[{"message":{"proof_data":"0x…","proof_type":"2","beacon_block_root":"0x…"},
+        "validator_index":"1234","signature":"0x…"}]'</pre>
+  <h3>Read proofs</h3>
+  <p><code>GET {{.BaseURL}}/eth/v1/beacon/execution_proofs/{block_id}</code> returns the verified proofs of a recent block (JSON, or SSZ with <code>Accept: application/octet-stream</code>).</p>
+  <p><code>GET {{.BaseURL}}/eth/v1/events?topics=execution_proof</code> streams every verified proof as server-sent event.</p>
+  <p><code>GET {{.BaseURL}}/api/proofs</code> and <code>GET {{.BaseURL}}/api/submissions</code> list what is shown below as JSON.</p>
+  <h3>Proof types</h3>
+  <p class="muted">{{range $id, $name := .TypeNames}}<span class="badge">{{$id}} · {{$name}}</span> {{end}}</p>
+</section>
+
+<section>
+  <h2>Recent proofs</h2>
+  {{if .Proofs}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Received</th><th>Slot</th><th>Block</th><th>Proof type</th><th>Prover</th><th>Size</th><th>Source</th><th>Download</th></tr></thead>
+    <tbody>
+    {{range .Proofs}}
+    <tr>
+      <td title="{{.Received.Format "2006-01-02 15:04:05 MST"}}">{{ago .Received}}</td>
+      <td class="num">{{if .Slot}}{{if $.ExplorerURL}}<a href="{{$.ExplorerURL}}/slot/{{.BlockRoot}}">{{.Slot}}</a>{{else}}{{.Slot}}{{end}}{{else}}<span class="muted">–</span>{{end}}</td>
+      <td class="mono" title="{{.BlockRoot}}">{{short .BlockRoot}}</td>
+      <td><span class="badge">{{.ProofType}}</span> {{.ProofTypeName}}</td>
+      <td class="num">{{if $.ExplorerURL}}<a href="{{$.ExplorerURL}}/validator/{{.ValidatorIndex}}">{{.ValidatorIndex}}</a>{{else}}{{.ValidatorIndex}}{{end}}</td>
+      <td class="num">{{size .Size}}</td>
+      <td>{{if .ViaGateway}}<span class="badge ok">via gateway</span>{{else}}<span class="badge" title="seen by {{range $i, $n := .SeenBy}}{{if $i}}, {{end}}{{$n}}{{end}}">gossip</span>{{end}}</td>
+      <td><a href="/proofs/{{.Key}}.json" rel="nofollow">JSON</a> · <a href="/proofs/{{.Key}}.ssz" rel="nofollow">SSZ</a></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{else}}<p class="empty">No proofs received yet.</p>{{end}}
+</section>
+
+<section>
+  <h2>Recent submissions</h2>
+  {{if .Submissions}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Time</th><th>Format</th><th>Result</th><th>Proofs</th></tr></thead>
+    <tbody>
+    {{range .Submissions}}
+    <tr>
+      <td title="{{.Time.Format "2006-01-02 15:04:05 MST"}}">{{ago .Time}}</td>
+      <td>{{.Format}}</td>
+      <td>{{if eq .Status 200}}<span class="badge ok">accepted</span>{{else}}<span class="badge bad">{{.Status}}</span>{{end}}{{if .Error}} <span class="err">{{.Error}}</span>{{end}}</td>
+      <td>
+        {{range .Proofs}}
+        <div><span class="badge">{{.ProofType}}</span> {{.ProofTypeName}} · prover {{.ValidatorIndex}} · <span class="mono" title="{{.BlockRoot}}">{{short .BlockRoot}}</span> · {{size .Size}}
+          {{if .Accepted}}<span class="badge ok">accepted</span>{{else}}<span class="badge bad">rejected</span>{{range $node, $msg := .Errors}}<div class="err">{{$node}}: {{$msg}}</div>{{end}}{{end}}
+        </div>
+        {{end}}
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{else}}<p class="empty">No submissions yet.</p>{{end}}
+</section>
+</main>
+</body>
+</html>
