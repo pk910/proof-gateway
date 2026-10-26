@@ -1,5 +1,5 @@
 # local build: docker build . -t pk910/proof-gateway:dev
-FROM golang:1.26-alpine AS build
+FROM golang:1.27-alpine AS build
 RUN apk add --no-cache git make
 WORKDIR /src
 COPY . .
